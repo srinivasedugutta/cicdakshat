@@ -1,6 +1,8 @@
 pipeline {
     agent any
+
     stages {
+
         stage('Build Maven') {
             steps {
                 git url: 'https://github.com/srinivasedugutta/cicdakshat/', branch: 'master'
@@ -19,10 +21,10 @@ pipeline {
         stage('Docker Login & Push') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-pwd', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
+                    sh '''
                         echo $PASS | docker login -u $USER --password-stdin
                         docker push srinivasedugutta/oct302025project:v1
-                    """
+                    '''
                 }
             }
         }
@@ -30,19 +32,14 @@ pipeline {
         stage('Deploy to Kubernetes') {
             when { branch 'master' }
             steps {
-                withCredentials([string(credentialsId: 'kubeconfig-text', variable: 'KUBECONFIG_CONTENT')]) {
+                withCredentials([file(credentialsId: 'kubeconfig-file', variable: 'KUBECONFIG_FILE')]) {
                     script {
                         sh '''
-                        # Set up kubeconfig
                         mkdir -p ~/.kube
-                        echo "$KUBECONFIG_CONTENT" > ~/.kube/config
+                        cp "$KUBECONFIG_FILE" ~/.kube/config
                         chmod 600 ~/.kube/config
-
-                        # Deploy to cluster
                         echo "Deploying application to Kubernetes..."
                         kubectl apply -f deploymentservice.yaml
-
-                        # Check status
                         kubectl get pods
                         kubectl get svc
                         '''
