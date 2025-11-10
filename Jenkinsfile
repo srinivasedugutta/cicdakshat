@@ -1,49 +1,35 @@
 pipeline {
     agent any
-
-    stages {
-
-        stage('Build Maven') {
-            steps {
-                git url: 'https://github.com/srinivasedugutta/cicdakshat/', branch: 'master'
-                sh 'mvn clean install'
+    stages{
+        stage('Build Maven'){
+            steps{
+                git url:'https://github.com/srinivasedugutta/cicdakshat/', branch: "master"
+               sh 'mvn clean install'
             }
         }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
+        stage('Build docker image'){
+            steps{
+                script{
                     sh 'docker build -t srinivasedugutta/oct302025project:v1 .'
                 }
             }
         }
-
-        stage('Docker Login & Push') {
+          stage('Docker login') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-pwd', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
-                        echo $PASS | docker login -u $USER --password-stdin
-                        docker push srinivasedugutta/oct302025project:v1
-                    '''
+                    sh "echo $PASS | docker login -u $USER --password-stdin"
+                    sh 'docker push srinivasedugutta/oct302025project:v1'
                 }
             }
         }
-
-        stage('Deploy to Kubernetes') {
-            when { branch 'master' }
-            steps {
-                withCredentials([file(credentialsId: 'kubeconfig-file', variable: 'KUBECONFIG_FILE')]) {
-                    script {
-                        sh '''
-                        mkdir -p ~/.kube
-                        cp "$KUBECONFIG_FILE" ~/.kube/config
-                        chmod 600 ~/.kube/config
-                        echo "Deploying application to Kubernetes..."
-                        kubectl apply -f deploymentservice.yaml
-                        kubectl get pods
-                        kubectl get svc
-                        '''
-                    }
+        
+        
+        stage('Deploy to k8s'){
+            when{ expression {env.GIT_BRANCH == 'master'}}
+            steps{
+                script{
+                     kubernetesDeploy (configs: 'deploymentservice.yaml' ,kubeconfigId: 'k8sconfigpwd')
+                   
                 }
             }
         }
